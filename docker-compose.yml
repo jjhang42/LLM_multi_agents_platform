@@ -1,0 +1,67 @@
+version: "3.8"
+
+services:
+  frontend:
+    build:
+      context: ./
+      dockerfile: docker/Dockerfile.frontend
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "3000:3000"
+    networks:
+      - llm-net
+
+  orchestrator:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.orchestrator
+    volumes:
+      - ./apps/orchestrator:/app/orchestrator
+    ports:
+      - "8000:8000"
+    networks:
+      - llm-net
+
+  broker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.broker
+    volumes:
+      - ./apps/broker:/app/broker
+    ports:
+      - "8001:8000"
+    depends_on:
+      - orchestrator
+    networks:
+      - llm-net
+
+  agent_core:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.agent_core
+    volumes:
+      - ./apps/agent_core:/app/agent_core
+    ports:
+      - "8002:8000"
+    depends_on:
+      - broker
+    networks:
+      - llm-net
+
+  agent_model:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.agent_model
+    volumes:
+      - ./apps/agent_model:/app/agent_model
+    ports:
+      - "8003:8000"
+    depends_on:
+      - agent_core
+    networks:
+      - llm-net
+
+networks:
+  llm-net:
+    driver: bridge

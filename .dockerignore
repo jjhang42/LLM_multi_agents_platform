@@ -1,0 +1,29 @@
+.git
+.gitignore
+*.md
+*.log
+*.bak
+*.tmp
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.env
+
+# --- Node.js (frontend) ---
+node_modules/
+.next/
+.env.local
+.env.production
+.env.development
+
+# --- Docker ---
+docker-compose.override.yml
+
+# --- IDE/OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
