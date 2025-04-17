@@ -35,6 +35,5 @@ class DataPart(BaseModel):
     data: Dict[str, Any]
     metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
-
 # --- Union Part ---
 Part = Union[TextPart, FilePart, DataPart]
