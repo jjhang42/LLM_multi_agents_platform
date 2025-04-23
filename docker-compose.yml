@@ -8,7 +8,9 @@ services:
     volumes:
       - ./frontend:/app
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT}:3000"
+    env_file:
+      - .env
     networks:
       - llm-net
 
@@ -19,7 +21,9 @@ services:
     volumes:
       - ./apps/orchestrator:/app/orchestrator
     ports:
-      - "8000:8000"
+      - "${ORCHESTRATOR_PORT:-8000}:8000"
+    env_file:
+      - .env
     networks:
       - llm-net
 
@@ -30,9 +34,11 @@ services:
     volumes:
       - ./apps/broker:/app/broker
     ports:
-      - "8001:8000"
+      - "${BROKER_PORT:-8001}:8000"
     depends_on:
       - orchestrator
+    env_file:
+      - .env
     networks:
       - llm-net
 
@@ -43,9 +49,11 @@ services:
     volumes:
       - ./apps/agent_core:/app/agent_core
     ports:
-      - "8002:8000"
+      - "${AGENT_CORE_PORT:-8010}:8000"
     depends_on:
       - broker
+    env_file:
+      - .env
     networks:
       - llm-net
 
@@ -56,9 +64,11 @@ services:
     volumes:
       - ./apps/agent_model:/app/agent_model
     ports:
-      - "8003:8000"
+      - "${AGENT_MODEL_PORT:-8011}:8000"
     depends_on:
       - agent_core
+    env_file:
+      - .env
     networks:
       - llm-net
 

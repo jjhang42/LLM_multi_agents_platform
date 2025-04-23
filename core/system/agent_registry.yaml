@@ -1,0 +1,15 @@
+agents:
+  - name: agent_core
+    host: agent_core
+    port: 8000
+    endpoint: /task
+
+  - name: agent_model
+    host: agent_model
+    port: 8000
+    endpoint: /task
+
+  - name: agent_draw
+    host: agent_draw
+    port: 8000
+    endpoint: /draw

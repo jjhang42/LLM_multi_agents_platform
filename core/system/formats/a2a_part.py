@@ -1,39 +1,33 @@
-from pydantic import BaseModel, Field, HttpUrl, root_validator
-from typing import Optional, Literal, Dict, Any, Union
+from pydantic import BaseModel
+from typing import Literal, Optional, Dict, Any, Union
 
 
-# --- TextPart ---
 class TextPart(BaseModel):
     type: Literal["text"]
     text: str
-    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    metadata: Optional[Dict[str, Any]] = None
 
 
-# --- FilePart ---
 class FilePayload(BaseModel):
     name: Optional[str] = None
-    mimeType: Optional[str] = None
+    mime_type: Optional[str] = None
     bytes: Optional[str] = None  # base64 encoded
-    uri: Optional[str] = None    # file URL
+    uri: Optional[str] = None
 
-    @root_validator
-    def validate_content(cls, values):
-        if not values.get("bytes") and not values.get("uri"):
-            raise ValueError("Either 'bytes' or 'uri' must be provided in file")
-        return values
+    def get_name_or_default(self):
+        return self.name or "unnamed"
 
 
 class FilePart(BaseModel):
     type: Literal["file"]
     file: FilePayload
-    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    metadata: Optional[Dict[str, Any]] = None
 
 
-# --- DataPart ---
 class DataPart(BaseModel):
     type: Literal["data"]
     data: Dict[str, Any]
-    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    metadata: Optional[Dict[str, Any]] = None
 
-# --- Union Part ---
+
 Part = Union[TextPart, FilePart, DataPart]

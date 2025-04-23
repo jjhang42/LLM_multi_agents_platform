@@ -1,11 +1,10 @@
-# ✅ first stage: builder
 FROM node:20-alpine AS builder
+
 WORKDIR /app
-COPY ./frontend/ ./
+COPY ../../frontend/ ./
 RUN npm install
 RUN npm run build
 
-# ✅ second stage: runtime
 FROM node:20-alpine
 WORKDIR /app
 COPY --from=builder /app/.next ./.next

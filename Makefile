@@ -1,5 +1,18 @@
-.PHONY: build up down logs restart \
-        dockerfiles gen clean-dockerfiles
+# ------------------------------------------------------------------------------
+# 🛠️ Dockerfile 생성 및 관리
+# ------------------------------------------------------------------------------
+
+dockerfiles:
+	@echo "[make] Generating Dockerfiles..."
+	python3 scripts/generate_dockerfile.py create
+
+cleandockerfiles:
+	@echo "[make] Cleaning Dockerfiles..."
+	python3 scripts/generate_dockerfile.py clean
+
+# ------------------------------------------------------------------------------
+# 🧱 Docker Compose Lifecycle
+# ------------------------------------------------------------------------------
 
 build:
 	docker-compose build
@@ -8,26 +21,26 @@ up:
 	docker-compose up
 
 down:
-	docker-compose down --rmi all --volumes --remove-orphans
+	docker-compose down
 
 logs:
-	docker-compose logs -f
+	docker-compose logs --follow
+
+ps:
+	docker-compose ps
 
 restart:
-	docker-compose down --rmi all --volumes --remove-orphans
-	docker-compose up
+	make down && make up
 
-# 👇 Dockerfile 자동화 관리
-dockerfiles:
-	python3 scripts/generate_dockerfile.py create
+# ------------------------------------------------------------------------------
+# 🔁 Full Rebuild Cycle
+# ------------------------------------------------------------------------------
 
-clean-dockerfiles:
-	python3 scripts/generate_dockerfile.py clean
+rebuild:
+	make cleandockerfiles
+	make dockerfiles
+	make build
+	make up
 
-build-fe:
-	docker-compose build frontend
-
-up-fe:
-	docker-compose up -d frontend
-
-gen: dockerfiles  # alias
+go:
+	make rebuild

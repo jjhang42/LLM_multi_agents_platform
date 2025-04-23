@@ -1,8 +1,15 @@
 FROM python:3.11-slim
 
 WORKDIR /app
-COPY ../../requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
 
-COPY ../../apps/agent_core/ ./agent_core/
-CMD ["python", "agent_core/main.py"]
+# Use uv (fast Python package installer)
+RUN pip install uv
+
+COPY ../../requirements.txt ./
+RUN uv pip install --system -r requirements.txt
+
+# Copy the whole project root relative to Docker build context
+COPY ../../ ./ 
+
+ENV PYTHONPATH=/app
+CMD ["python", "apps/agent_core/main.py"]
