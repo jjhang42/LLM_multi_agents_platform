@@ -15,7 +15,7 @@ cleandockerfiles:
 # ------------------------------------------------------------------------------
 
 build:
-	docker-compose build
+	docker-compose build --no-cache
 
 up:
 	docker-compose up
@@ -37,6 +37,7 @@ restart:
 # ------------------------------------------------------------------------------
 
 rebuild:
+	make down
 	make cleandockerfiles
 	make dockerfiles
 	make build

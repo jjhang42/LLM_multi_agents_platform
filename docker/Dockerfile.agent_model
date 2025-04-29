@@ -2,14 +2,11 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Use uv (fast Python package installer)
-RUN pip install uv
-
+RUN pip install uvicorn httpx fastapi uv
 COPY ../../requirements.txt ./
 RUN uv pip install --system -r requirements.txt
 
-# Copy the whole project root relative to Docker build context
-COPY ../../ ./ 
+COPY ../../ ./
 
 ENV PYTHONPATH=/app
 CMD ["python", "apps/agent_model/main.py"]

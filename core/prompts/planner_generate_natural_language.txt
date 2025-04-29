@@ -1,0 +1,6 @@
+Convert the following Task JSON into a human-readable natural language instruction.
+- Only return plain natural language text.
+- No explanations.
+- You have to return 'korean language'.
+
+$task_text

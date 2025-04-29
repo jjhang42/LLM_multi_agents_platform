@@ -1,0 +1,6 @@
+Based on the following Task JSON, create a new next-step Task JSON if needed.
+- Only return JSON.
+- No explanations.
+- No code blocks.
+
+$task_text
