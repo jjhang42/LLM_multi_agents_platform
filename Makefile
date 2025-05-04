@@ -37,7 +37,6 @@ restart:
 # ------------------------------------------------------------------------------
 
 rebuild:
-	make down
 	make cleandockerfiles
 	make dockerfiles
 	make build

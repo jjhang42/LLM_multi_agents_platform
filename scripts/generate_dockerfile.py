@@ -29,31 +29,32 @@ WORKDIR /app
 
 COPY frontend/package*.json ./
 COPY frontend/tsconfig.json ./
-COPY frontend/postcss.config.mjs ./
+COPY frontend/postcss.config.js ./
 COPY frontend/tailwind.config.js ./
-COPY frontend/next.config.mjs ./
-RUN npm install
+COPY frontend/next.config.js ./
+RUN npm ci
 
 COPY frontend/ ./
-
 RUN npm run build
 
 # Stage 2: Run
 FROM node:20-alpine
 WORKDIR /app
 
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/next.config.mjs ./
-COPY --from=builder /app/postcss.config.mjs ./
-COPY --from=builder /app/tailwind.config.js ./
-COPY --from=builder /app/node_modules ./node_modules
+ENV NODE_ENV=production
 
-ENV PORT=3000
+# ✅ 이 부분: server.js가 포함된 standalone 디렉토리를 전체 복사
+COPY --from=builder /app/.next/standalone /app
+
+# ✅ 정적 파일 및 public 디렉토리도 같이 복사
+COPY --from=builder /app/.next/static .next/static
+COPY --from=builder /app/public public
+
 EXPOSE 3000
-CMD [\"npx\", \"next\", \"start\", \"-p\", \"3000\"]
+# ✅ server.js는 이제 /app/server.js에 있으므로 다음과 같이 실행
+CMD ["node", "server.js"]
 """
+
 
 DOCKER_DIR = "docker"
 
@@ -63,7 +64,7 @@ def generate_all():
         dockerfile_path = os.path.join(DOCKER_DIR, f"Dockerfile.{name}")
 
         if name == "frontend":
-            content = FRONTEND_TEMPLATE.format(name=name)
+            content = FRONTEND_TEMPLATE
         else:
             if name in ["api_gateway", "orchestrator", "broker"]:
                 module_path = entrypoint[:-3].replace('/', '.')

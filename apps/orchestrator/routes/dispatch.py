@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from fastapi.encoders import jsonable_encoder
-from core.system.formats.a2a_task import TaskSendParams
+from core.system.formats.a2a import TaskSendParams
 from apps.orchestrator.services.task_dispatcher import dispatch_task
 import traceback
 

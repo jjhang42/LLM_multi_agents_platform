@@ -1,5 +1,5 @@
 from fastapi.encoders import jsonable_encoder
-from core.system.formats.a2a_task import Task
+from core.system.formats.a2a import Task
 from core.system.formats.trace_log import TraceLog
 from core.system.agent_registry import get_agent_url_from_registry
 from core.system.config import get_broker_url

@@ -1,17 +1,18 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from core.adapters.planner.planner_router import get_planner
-from core.system.parser.task_assembler import assemble_tasks_with_graph
+from core.system.parser.task_input_injector import inject_input_text_to_tasks
+from core.system.debug.task_debugger import debug_print_loose_tasks_and_graph
+from core.system.utils.serialize import serialize
 import uuid
-import os
-from core.system.debug.task_debugger import debug_print_tasks_and_graph
+import httpx
+import traceback
 
 app = FastAPI()
 
-# CORS 미들웨어 추가
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 또는 ["http://127.0.0.1:3000"]처럼 구체적으로 제한 가능
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -21,73 +22,49 @@ app.add_middleware(
 async def natural_language_to_tasks(request: Request):
     print("[DEBUG] Received POST / request in Orchestrator")
 
+    # ✅ 사용자 입력 수신
     body = await request.json()
     input_text = body.get("message", "")
     print("[DEBUG] Input text:", input_text)
 
+    # ✅ Planner 선택 및 태스크 생성
     planner = get_planner()
     print("[DEBUG] Planner selected:", planner.__class__.__name__)
 
-    tasks, graph = await planner.parse(input_text)
+    try:
+        tasks, graph = await planner.parse(input_text)
+        print(f"[DEBUG] Parsed task count: {len(tasks)}")
+    except Exception as e:
+        traceback.print_exc()
+        return {"status": "planner_error", "error": str(e)}
 
-    tasks, graph = assemble_tasks_with_graph(tasks)
+    # ✅ 사용자 입력 메시지 → Task.message 및 metadata 주입
+    inject_input_text_to_tasks(tasks, input_text)
 
-    # 🧩 공통 context_id 부여
+    # ✅ context_id 부여
     context_id = str(uuid.uuid4())
     for task in tasks.values():
-        task["context_id"] = context_id
-    
-    debug_print_tasks_and_graph(tasks, graph)
+        if isinstance(task, dict):
+            task["context_id"] = context_id
+        else:
+            task.metadata = task.metadata or {}
+            task.metadata["context_id"] = context_id
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        await client.post("http://broker:8000/task", json={
-            "context_id": context_id,
-            "tasks": tasks,
-            "graph": graph.serialize()
-        })
+    # ✅ 디버깅 출력
+    debug_print_loose_tasks_and_graph(tasks, graph)
 
-    return {
-        "status": "tasks_generated",
+    # ✅ 직렬화 후 Broker로 전송
+    payload = serialize({
         "context_id": context_id,
         "tasks": tasks,
         "graph": graph.serialize()
-    }
+    })
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        await client.post("http://broker:8000/tasks", json=payload)
+
+    return payload
 
 @app.get("/health")
 async def health():
     return {"status": "orchestrator alive"}
-
-# from fastapi import FastAPI
-# from apps.orchestrator.routes import dispatch
-# import uvicorn
-# import httpx
-# from core.system.config import settings
-
-# app = FastAPI()
-# app.include_router(dispatch.router, prefix="/api")
-
-# @app.get("/")
-# def root():
-#     return {"message": "Orchestrator is alive"}
-
-# @app.get("/health")
-# async def health_check():
-#     # Broker 연결 확인
-#     broker_status = "unknown"
-#     try:
-#         async with httpx.AsyncClient() as client:
-#             response = await client.get(f"http://{settings.BROKER_HTTP_HOST}:{settings.BROKER_HTTP_PORT}/health")
-#             broker_status = "ok" if response.status_code == 200 else "error"
-#     except Exception as e:
-#         broker_status = f"error: {str(e)}"
-
-#     return {
-#         "status": "ok",
-#         "service": "orchestrator",
-#         "dependencies": {
-#             "broker": broker_status
-#         }
-#     }
-
-# if __name__ == "__main__":
-#     uvicorn.run(app, host="0.0.0.0", port=8000)

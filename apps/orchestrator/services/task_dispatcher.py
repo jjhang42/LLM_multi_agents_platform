@@ -1,5 +1,4 @@
-from core.system.formats.a2a_task import TaskSendParams, Task, TaskStatus, TaskState
-from core.system.formats.a2a_message import Message
+from core.system.formats.a2a import TaskSendParams, Task, TaskStatus, TaskState, Message
 from core.system.formats.trace_log import TraceLog
 from apps.orchestrator.broker_client import get_broker
 from fastapi.encoders import jsonable_encoder

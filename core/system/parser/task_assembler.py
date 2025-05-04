@@ -1,38 +1,37 @@
-# core/system/parsers/task_assembler.py
+# core/system/parser/task_assembler.py
 
-from typing import Dict, Any, Tuple
-import uuid
+from typing import Dict, Tuple, List
 from core.system.metadata.task_graph import TaskGraph
+from core.system.formats.a2a import Task
 
-def assemble_tasks_with_graph(raw_tasks: Any) -> Tuple[Dict[str, Any], TaskGraph]:
+def assemble_tasks_with_graph(tasks: List[Task]) -> Tuple[Dict[str, Task], TaskGraph]:
     """
-    LLM이 반환한 raw task들을 A2A 포맷 + TaskGraph로 정리합니다.
+    A2A Task 리스트로부터 Task 딕셔너리와 TaskGraph를 생성합니다.
+    - Task.metadata["depends"] 필드를 기준으로 DAG(Directed Acyclic Graph)를 구성합니다.
+
     Args:
-        raw_tasks (Any): LLM 파싱 결과 (list 또는 dict)
+        tasks (List[Task]): LLM에서 생성된 Task 객체 리스트
+
     Returns:
-        Tuple[Dict[str, Any], TaskGraph]: 표준화된 tasks, graph
+        Tuple[Dict[str, Task], TaskGraph]: task_id 기준의 딕셔너리, 종속성 그래프
     """
-    assembled = {}
+    task_dict: Dict[str, Task] = {}
     graph = TaskGraph()
 
-    # raw_tasks가 리스트면 복수 task, dict면 단일 task
-    if isinstance(raw_tasks, dict):
-        raw_tasks = [raw_tasks]
+    for task in tasks:
+        task_id = task.id
+        task_dict[task_id] = task
 
-    for task in raw_tasks:
-        real_id = task.get("id") or f"task_{uuid.uuid4().hex[:8]}"
+        # ✅ depends는 metadata에만 존재 (정식 A2A 확장 규칙)
+        depends_raw = task.metadata.get("depends") if task.metadata else []
         
-        assembled_task = {
-            "id": real_id,
-            "type": task.get("type", "action"),
-            "parameters": task.get("parameters", {}),
-            "depends": task.get("depends", []),
-            "status": task.get("status", "pending"),
-            "result": task.get("result", None),
-            "metadata": task.get("metadata", {})
-        }
+        if isinstance(depends_raw, str):
+            depends = [depends_raw]
+        elif isinstance(depends_raw, list):
+            depends = depends_raw
+        else:
+            depends = []
 
-        assembled[real_id] = assembled_task
-        graph.add_task(real_id, assembled_task["depends"])
+        graph.add_task(task_id, depends)
 
-    return assembled, graph
+    return task_dict, graph

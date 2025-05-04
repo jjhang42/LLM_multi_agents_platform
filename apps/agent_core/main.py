@@ -1,6 +1,6 @@
 # apps/agent_core/main.py
 from fastapi import FastAPI
-from core.system.formats.a2a_task import Task
+from core.system.formats.a2a import Task
 from core.system.formats.trace_log import TraceLog
 from fastapi.responses import JSONResponse
 import traceback

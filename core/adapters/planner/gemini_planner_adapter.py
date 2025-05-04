@@ -1,12 +1,15 @@
 import os
 import httpx
-import json
-import uuid
-from typing import Dict, Tuple
-from string import Template  # ✅ 추가
+import mimetypes
+from string import Template
+from typing import Dict, List
 from core.adapters.planner.llm_planner_base import LLMPlannerBase
 from core.prompts.loader import load_prompt
-from core.system.metadata.task_graph import TaskGraph
+from core.system.formats.a2a_part import Part
+
+def infer_mime_type_from_url(url: str) -> str:
+    mime_type, _ = mimetypes.guess_type(url)
+    return mime_type or "application/octet-stream"
 
 class GeminiPlannerAdapter(LLMPlannerBase):
     def __init__(self):
@@ -15,8 +18,50 @@ class GeminiPlannerAdapter(LLMPlannerBase):
         self.model = os.getenv("ORCHESTRATOR_GEMINI_MODEL", os.getenv("GEMINI_MODEL", "models/gemini-pro"))
 
         self.prompt_parse_task = load_prompt("planner_parse_task.txt")
-        self.prompt_transform_task = load_prompt("planner_transform_task.txt")
         self.prompt_generate_nl = load_prompt("planner_generate_natural_language.txt")
+
+    async def _call_llm_with_parts(self, parts: List[Part]) -> str:
+        gemini_parts = []
+
+        if self.prompt_parse_task:
+            gemini_parts.append({"text": self.prompt_parse_task.strip()})
+
+        for part in parts:
+            if part.type == "text":
+                gemini_parts.append({"text": part.text})
+
+            elif part.type in {"image_url", "file_url", "pdf_url", "txt_url"} or part.type.startswith("file_url"):
+                mime_type = infer_mime_type_from_url(part.url)
+
+                gemini_parts.append({
+                    "inline_data": {
+                        "mime_type": mime_type,
+                        "data": part.url
+                    }
+                })
+
+        payload = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": gemini_parts
+                }
+            ]
+        }
+
+        url = f"{self.api_base}/{self.model}:generateContent?key={self.api_key}"
+        headers = {"Content-Type": "application/json"}
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, headers=headers, json=payload)
+            response.raise_for_status()
+            data = response.json()
+
+        return data["candidates"][0]["content"]["parts"][0]["text"]
+
+    async def _call_llm(self, input_text: str) -> str:
+        prompt = Template(self.prompt_parse_task).substitute(input_text=input_text)
+        return await self._query_gemini(prompt)
 
     async def _query_gemini(self, prompt: str) -> str:
         headers = {"Content-Type": "application/json"}
@@ -32,40 +77,7 @@ class GeminiPlannerAdapter(LLMPlannerBase):
 
         return data["candidates"][0]["content"]["parts"][0]["text"]
 
-    async def _parse_single_task(self, input_text: str) -> dict:
-        """자연어 → 단일 Task 변환"""
-        prompt = Template(self.prompt_parse_task).substitute(input_text=input_text)  # ✅ Template 적용
-        result_text = await self._query_gemini(prompt)
-        try:
-            return json.loads(result_text)
-        except Exception:
-            return {"error": "Failed to parse Task JSON", "raw": result_text}
-
-    async def parse(self, input_text: str) -> Tuple[Dict[str, dict], TaskGraph]:
-        """LLMPlannerBase 명세 충족: 자연어 → Tasks + Graph"""
-        task = await self._parse_single_task(input_text)
-
-        task_id = task.get("id") or str(uuid.uuid4())
-        tasks = {task_id: task}
-
-        graph = TaskGraph()
-        graph.add_task(task_id)
-
-        return tasks, graph
-
-    async def transform_task(self, task: dict) -> dict:
-        """기존 Task를 기반으로 다음 Task 생성"""
-        task_text = json.dumps(task, ensure_ascii=False)
-        prompt = Template(self.prompt_transform_task).substitute(task_text=task_text)  # ✅ Template 적용
-        result_text = await self._query_gemini(prompt)
-        try:
-            return json.loads(result_text)
-        except Exception:
-            return {"error": "Failed to transform Task JSON", "raw": result_text}
-
     async def generate_natural_language(self, task: dict) -> str:
-        """Task를 자연어 설명으로 변환"""
-        task_text = json.dumps(task, ensure_ascii=False)
-        prompt = Template(self.prompt_generate_nl).substitute(task_text=task_text)  # ✅ Template 적용
-        result_text = await self._query_gemini(prompt)
-        return result_text
+        task_text = str(task)
+        prompt = Template(self.prompt_generate_nl).substitute(task_text=task_text)
+        return await self._query_gemini(prompt)

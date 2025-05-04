@@ -37,3 +37,13 @@ class TaskSendParams(BaseModel):
     history_length: Optional[int] = None
     push_notification: Optional[PushNotificationConfig] = None
     metadata: Optional[Dict[str, Any]] = None
+
+    @classmethod
+    def from_task(cls, task: Task) -> "TaskSendParams":
+        return cls(
+            id=task.id,
+            session_id=task.session_id,
+            message=task.status.message or Message(role="user", content="", timestamp=datetime.utcnow()),
+            metadata=task.metadata or {},
+            history_length=len(task.history or [])
+        )
