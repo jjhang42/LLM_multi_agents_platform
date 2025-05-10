@@ -1,10 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from apps.api_gateway.routes.forward import router as forward_router
-from apps.api_gateway.routes import messages, upload, graph
+
+# 각 라우터를 파일별로 명시적으로 import
+from apps.api_gateway.routes.graph import router as graph_router
+from apps.api_gateway.routes.task import router as task_router
+from apps.api_gateway.routes.tasks import router as tasks_router
 
 app = FastAPI(title="LLM API Gateway")
 
+# CORS 설정
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -13,11 +17,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(forward_router)
-app.include_router(messages.router)
-app.include_router(upload.router)
-app.include_router(graph.router)
-
+# 라우터 등록
+app.include_router(graph_router)
+app.include_router(task_router)
+app.include_router(tasks_router)
+# 헬스 체크
 @app.get("/health")
 async def health_check():
     return {"status": "api_gateway running"}

@@ -3,5 +3,7 @@ export type Message = {
 	role: 'user' | 'agent';
 	content: string;
 	timestamp: string;
+	username: string;
+	profileImage?: string;
   };
   

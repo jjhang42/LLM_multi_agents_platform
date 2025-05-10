@@ -43,16 +43,10 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# ✅ 이 부분: server.js가 포함된 standalone 디렉토리를 전체 복사
-COPY --from=builder /app/.next/standalone /app
-
-# ✅ 정적 파일 및 public 디렉토리도 같이 복사
-COPY --from=builder /app/.next/static .next/static
-COPY --from=builder /app/public public
+COPY --from=builder /app /app
 
 EXPOSE 3000
-# ✅ server.js는 이제 /app/server.js에 있으므로 다음과 같이 실행
-CMD ["node", "server.js"]
+CMD ["npm", "run", "start"]
 """
 
 

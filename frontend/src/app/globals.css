@@ -2,8 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@import "tw-animate-css";
-
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -122,9 +120,9 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply border-gray-300 outline-none;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-gray-50 text-white;
   }
 }

@@ -14,6 +14,31 @@ cleandockerfiles:
 # 🧱 Docker Compose Lifecycle
 # ------------------------------------------------------------------------------
 
+# ------------------------------------------------------------------------------
+# 🎯 Run specific service
+# ------------------------------------------------------------------------------
+
+frontend:
+	docker-compose up -d --build frontend
+
+api_gateway:
+	docker-compose up -d --build api_gateway
+
+orchestrator:
+	docker-compose up -d --build orchestrator
+
+broker:
+	docker-compose up -d --build broker
+
+registry:
+	docker-compose up -d --build registry
+
+agent_core:
+	docker-compose up -d --build agent_core
+
+agent_model:
+	docker-compose up -d --build agent_model
+
 build:
 	docker-compose build --no-cache
 
