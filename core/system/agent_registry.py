@@ -35,3 +35,5 @@ def get_agent_url_from_registry(name: str) -> str:
     if not url:
         raise ValueError(f"Agent '{name}' not found in registry.")
     return url
+
+agents = load_agent_registry()

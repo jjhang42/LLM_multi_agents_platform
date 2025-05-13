@@ -1,15 +1,15 @@
 agents:
-  - name: agent_core
-    host: agent_core
-    port: 8000
+  - name: agent_creator
+    host: agent_creator
+    port: 8011
     endpoint: /task
 
-  - name: agent_model
-    host: agent_model
-    port: 8000
+  - name: agent_researcher
+    host: agent_researcher
+    port: 8012
     endpoint: /task
 
-  - name: agent_draw
-    host: agent_draw
-    port: 8000
-    endpoint: /draw
+  - name: agent_publisher
+    host: agent_publisher
+    port: 8013
+    endpoint: /task

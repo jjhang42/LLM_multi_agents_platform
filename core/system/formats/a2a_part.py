@@ -1,6 +1,10 @@
 from pydantic import BaseModel
 from typing import Literal, Optional, Dict, Any, Union
 
+class FileContent(BaseModel):
+    bytes: Union[str, bytes]
+    mimeType: str
+    name: Optional[str] = None
 
 class TextPart(BaseModel):
     type: Literal["text"]

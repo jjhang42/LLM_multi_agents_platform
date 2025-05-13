@@ -20,6 +20,21 @@ Each task must follow the A2A Task Protocol and contain:
     - `depends`: list of task IDs this task depends on (use for DAG structure)
 - `status.message.parts[0].text`: specific instruction only for this task
 
+Additional Rules:
+- Use the following mappings to determine `action` based on common verbs:
+    - "요약", "정리", "핵심" → "summarize"
+    - "분석", "검토", "파악", "문제 확인" → "analyze"
+    - "그려", "시각화", "그래프", "도표" → "visualize"
+    - "작성", "통합", "리포트" → "synthesize"
+    - "번역", "translate" → "translate"
+    - "이미지 생성", "사진", "그림", "묘사" → "generate_image"
+    - "날씨" → "fetch_weather"
+    - 기타 애매하거나 모호한 표현은 "unknown" 이 아닌 가장 가까운 의미로 매핑하세요.
+- Avoid returning `"action": "unknown"`. Always make a best-effort guess based on verbs or context.
+- The `target` must be clearly linked to the relevant file or subject mentioned in the instruction.
+- If multiple tasks are described in one sentence (e.g., "요약하고 시각화해줘"), split them into separate task objects and use `depends`.
+- If the same file is referenced with different operations, assign distinct `id` values and connect them via `depends`.
+
 Fallback Rule:
 - If the instruction does **not contain actionable content** (e.g., small talk, personal remarks),
   return a single `"chat_response"` message instead of tasks.

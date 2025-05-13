@@ -2,36 +2,56 @@ import os
 import httpx
 import uuid
 import json
+from typing import List, Dict, Any
 from string import Template
-from typing import List
+
 from core.adapters.planner.llm_planner_base import LLMPlannerBase
+from core.system.formats.a2a_part import Part
+from core.system.utils.chat_task_builder import make_chat_response_task
 from core.prompts.loader import load_prompt
-from core.system.formats.a2a_part import Part, TextPart
 
 
 class ClaudePlannerAdapter(LLMPlannerBase):
     def __init__(self):
         self.api_key = os.getenv("ORCHESTRATOR_CLAUDE_API_KEY", os.getenv("CLAUDE_API_KEY"))
-        self.api_base = os.getenv("ORCHESTRATOR_CLAUDE_API_BASE", os.getenv("CLAUDE_API_BASE", "https://api.anthropic.com/v1"))
-        self.model = os.getenv("ORCHESTRATOR_CLAUDE_MODEL", os.getenv("CLAUDE_MODEL", "claude-3-opus-20240229"))
+        self.api_base = os.getenv("ORCHESTRATOR_CLAUDE_API_BASE", "https://api.anthropic.com/v1")
+        self.model = os.getenv("ORCHESTRATOR_CLAUDE_MODEL", "claude-3-opus-20240229")
 
         self.prompt_parse_task = load_prompt("planner_parse_task.txt")
         self.prompt_generate_nl = load_prompt("planner_generate_natural_language.txt")
 
-    async def _call_llm_with_parts(self, parts: List[Part]) -> str:
-        # 프롬프트 + parts[]를 텍스트로 직렬화
-        content = self.prompt_parse_task.strip() + "\n\n"
-        for part in parts:
-            if part.type == "text":
-                content += f"[Text]\n{part.text}\n"
-            elif part.type == "file":
-                uri = getattr(part.file, "uri", "unknown")
-                name = getattr(part.file, "name", "unnamed")
-                content += f"[File: {name}]\n{uri}\n"
-            elif hasattr(part, "url"):
-                content += f"[{part.type.upper()}]\n{part.url}\n"
+        if not self.api_key:
+            raise ValueError("❌ 환경 변수 'CLAUDE_API_KEY' 또는 'ORCHESTRATOR_CLAUDE_API_KEY'가 필요합니다.")
 
-        return await self._send_claude_prompt(content)
+    async def _call_llm_with_parts(self, context: Dict[str, Any]) -> str:
+        parts = context.get("parts", [])
+        agent_cards = context.get("agent_cards", [])
+        prior_tasks = context.get("prior_tasks", [])
+
+        user_text = next((p.text for p in parts if p.type == "text"), "")
+        agent_skill_ids = [card.get("id", "unknown") for card in agent_cards]
+        prior_task_ids = [t.get("id", "task") for t in prior_tasks]
+
+        prompt = f"""
+{self.prompt_parse_task.strip()}
+
+[사용자 요청]
+{user_text}
+
+[사용 가능 에이전트 스킬 ID 목록]
+{agent_skill_ids}
+
+[이전 작업들]
+{prior_task_ids}
+        """.strip()
+
+        return await self._send_claude_prompt(prompt)
+
+    async def _chat_response(self, parts: List[Part]):
+        user_text = next((p.text for p in parts if p.type == "text"), "")
+        prompt = f"다음 사용자 메시지에 짧고 자연스럽게 응답해주세요:\n\n\"{user_text}\""
+        response = await self._send_claude_prompt(prompt)
+        return make_chat_response_task(response)
 
     async def generate_natural_language(self, task: dict) -> str:
         task_text = str(task)
@@ -52,19 +72,18 @@ class ClaudePlannerAdapter(LLMPlannerBase):
             ]
         }
 
-        async with httpx.AsyncClient(timeout=30.0) as client:            
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(f"{self.api_base}/messages", headers=headers, json=payload)
             response.raise_for_status()
             data = response.json()
 
-        # 디버깅 응답 저장
+        # 디버깅용 응답 저장 (선택적)
         if os.getenv("DEBUG_SAVE_LLM_RESPONSE", "false").lower() == "true":
             path = f"/tmp/claude_response_{uuid.uuid4().hex[:8]}.json"
             with open(path, "w") as f:
                 json.dump(data, f, indent=2)
-            print(f"Claude 응답 저장됨: {path}")
+            print(f"📁 Claude 응답 저장됨: {path}")
 
-        # 안전한 응답 추출
         try:
             return data["content"][0]["text"]
         except (KeyError, IndexError) as e:

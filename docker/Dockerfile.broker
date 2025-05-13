@@ -2,9 +2,10 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN pip install uvicorn httpx fastapi uv
-COPY ../../requirements.txt ./
-RUN uv pip install --system -r requirements.txt
+# 공통 필수 패키지
+RUN pip install --no-cache-dir uvicorn httpx fastapi python-dotenv
+
+RUN pip install --no-cache-dir pyyaml pydantic-settings
 
 COPY ../../ ./
 

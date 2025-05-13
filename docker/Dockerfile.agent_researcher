@@ -1,0 +1,13 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# 공통 필수 패키지
+RUN pip install --no-cache-dir uvicorn httpx fastapi python-dotenv
+
+RUN pip uninstall -y google || true && pip install --no-cache-dir protobuf==4.25.3 && pip install --no-cache-dir google-generativeai==0.2.0 Pillow && pip install --no-cache-dir crewai
+
+COPY ../../ ./
+
+ENV PYTHONPATH=/app
+CMD ["python", "apps/agent_researcher/main.py"]

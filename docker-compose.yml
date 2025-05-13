@@ -23,6 +23,12 @@ services:
       - "${API_GATEWAY_PORT:-4000}:8000"
     depends_on:
       - orchestrator
+    env_file:
+      - .env
+    volumes:
+      - ./core:/app/core
+    environment:
+      - PYTHONPATH=/app
     networks:
       - llm-net
 
@@ -32,10 +38,13 @@ services:
       dockerfile: docker/Dockerfile.orchestrator
     volumes:
       - ./apps/orchestrator:/app/orchestrator
+      - ./core:/app/core
     ports:
       - "${ORCHESTRATOR_PORT:-8000}:8000"
     env_file:
       - .env
+    environment:
+      - PYTHONPATH=/app
     networks:
       - llm-net
 
@@ -45,42 +54,69 @@ services:
       dockerfile: docker/Dockerfile.broker
     volumes:
       - ./apps/broker:/app/broker
+      - ./core:/app/core
     ports:
       - "${BROKER_PORT:-8001}:8000"
     depends_on:
       - orchestrator
     env_file:
       - .env
+    environment:
+      - PYTHONPATH=/app
     networks:
       - llm-net
 
-  agent_core:
+  agent_creator:
     build:
       context: .
-      dockerfile: docker/Dockerfile.agent_core
+      dockerfile: docker/Dockerfile.agent_creator
     volumes:
-      - ./apps/agent_core:/app/agent_core
+      - ./apps/agent_creator:/app/agent_creator
+      - ./core:/app/core
     ports:
-      - "${AGENT_CORE_PORT:-8010}:8000"
+      - "${AGENT_CREATOR_PORT:-8011}:8000"
     depends_on:
       - broker
     env_file:
       - .env
+    environment:
+      - PYTHONPATH=/app
     networks:
       - llm-net
 
-  agent_model:
+  agent_researcher:
     build:
       context: .
-      dockerfile: docker/Dockerfile.agent_model
+      dockerfile: docker/Dockerfile.agent_researcher
     volumes:
-      - ./apps/agent_model:/app/agent_model
+      - ./apps/agent_researcher:/app/agent_researcher
+      - ./core:/app/core
     ports:
-      - "${AGENT_MODEL_PORT:-8011}:8000"
+      - "${AGENT_RESEARCHER_PORT:-8012}:8000"
     depends_on:
-      - agent_core
+      - broker
     env_file:
       - .env
+    environment:
+      - PYTHONPATH=/app
+    networks:
+      - llm-net
+
+  agent_publisher:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.agent_publisher
+    volumes:
+      - ./apps/agent_publisher:/app/agent_publisher
+      - ./core:/app/core
+    ports:
+      - "${AGENT_PUBLISHER_PORT:-8013}:8000"
+    depends_on:
+      - broker
+    env_file:
+      - .env
+    environment:
+      - PYTHONPATH=/app
     networks:
       - llm-net
 

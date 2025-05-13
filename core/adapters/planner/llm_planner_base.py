@@ -1,26 +1,65 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Literal, Any
 from core.system.metadata.task_graph import TaskGraph
 from core.system.parser.task_assembler import assemble_tasks_with_graph
 from core.system.utils.llm_response_parser import llm_response_parser
 from core.system.formats.a2a import Task
 from core.system.formats.a2a_part import Part
 import traceback
+import json
 
 
 class LLMPlannerBase(ABC):
-    async def parse(self, parts: List[Part]) -> Tuple[Dict[str, Task], TaskGraph]:
+    async def parse(
+        self,
+        parts: List[Part],
+        agent_cards: List[Dict] = [],
+        task_history: List[Task] = []
+    ) -> Tuple[Dict[str, Task], TaskGraph]:
         """
-        사용자의 입력을 멀티모달 파트 배열로 받아 LLM 호출 → A2A Task + DAG 그래프 생성
-        - DAG 유효성 검사 포함
-        - 실패 시 1회 재시도
+        입력 유형(chat, planning, task)에 따라 다른 경로로 Task + Graph를 생성합니다.
+        """
+        input_type = self._classify_input_type(parts)
+        print(f"🔎 [Planner] Input type classified as: {input_type}")
+
+        if input_type == "chat":
+            task = await self._chat_response(parts)
+            return {"chat_response": task}, TaskGraph()
+
+        elif input_type == "task":
+            return self._parse_task_json_direct(parts)
+
+        else:  # planning
+            return await self._run_llm_planning(parts, agent_cards, task_history)
+
+    def _classify_input_type(self, parts: List[Part]) -> Literal["chat", "planning", "task"]:
+        text = next((p.text for p in parts if p.type == "text"), "")
+        if text.strip().startswith("{") and '"tasks"' in text:
+            return "task"
+        elif any(kw in text for kw in ["검색", "요약", "정리", "설명", "이미지", "날씨"]):
+            return "planning"
+        return "chat"
+
+    async def _run_llm_planning(
+        self,
+        parts: List[Part],
+        agent_cards: List[Dict],
+        task_history: List[Task]
+    ) -> Tuple[Dict[str, Task], TaskGraph]:
+        """
+        LLM에 context를 포함한 프롬프트를 전달하고 결과를 파싱합니다.
+        최대 2회 재시도하며, DAG 검증 포함.
         """
         user_input = next((p.text for p in parts if getattr(p, "type", None) == "text"), "")
-
-        for attempt in range(2):  # 최대 2회 시도
+        for attempt in range(2):
             try:
-                raw_response = await self._call_llm_with_parts(parts)
+                llm_context = {
+                    "parts": parts,
+                    "agent_cards": agent_cards,
+                    "prior_tasks": [t.dict() for t in task_history]
+                }
 
+                raw_response = await self._call_llm_with_parts(llm_context)
                 parsed_tasks = self._parse_response(raw_response, user_input=user_input)
 
                 tasks, graph = assemble_tasks_with_graph(parsed_tasks)
@@ -40,26 +79,38 @@ class LLMPlannerBase(ABC):
                 if attempt == 1:
                     raise RuntimeError("LLM parsing or validation failed")
 
-    @abstractmethod
-    async def _call_llm_with_parts(self, parts: List[Part]) -> str:
+    def _parse_task_json_direct(self, parts: List[Part]) -> Tuple[Dict[str, Task], TaskGraph]:
         """
-        parts 배열을 LLM-friendly prompt 형식으로 직렬화 후 LLM에 요청.
-        실제 모델 API 호출은 하위 클래스에서 구현합니다.
+        JSON 형태로 직접 task 입력이 들어온 경우 파싱 처리
+        """
+        try:
+            raw_json = next((p.text for p in parts if p.type == "text"), "{}")
+            data = json.loads(raw_json)
+            tasks, graph = assemble_tasks_with_graph(data["tasks"], data.get("graph"))
+            return tasks, graph
+        except Exception as e:
+            raise RuntimeError(f"❌ 직접 입력된 JSON 파싱 실패: {e}")
+
+    @abstractmethod
+    async def _call_llm_with_parts(self, context: Dict[str, Any]) -> str:
+        """
+        LLM 호출: parts, agent_cards, prior_tasks를 포함한 context를 prompt로 구성해 호출
         """
         pass
 
-    def _parse_response(self, text: str, user_input: str = "") -> List[Task]:
+    @abstractmethod
+    async def _chat_response(self, parts: List[Part]) -> Task:
         """
-        LLM의 JSON 응답 문자열을 Task[]로 파싱.
-        - 상태 자동 보완
-        - message 필드 추정
-        - timestamp 등 시스템 정보 추가
+        일반적인 단답 응답 처리 (예: chat_response)
         """
-        return llm_response_parser(text, Task, user_input=user_input)
+        pass
 
     @abstractmethod
     async def generate_natural_language(self, task: dict) -> str:
         """
-        Task 객체를 자연어 문장으로 변환 (요약 등)
+        Task를 자연어로 재구성
         """
         pass
+
+    def _parse_response(self, text: str, user_input: str = "") -> List[Task]:
+        return llm_response_parser(text, Task, user_input=user_input)
